@@ -1,0 +1,144 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+
+# Miscellaneous
+
+*.class
+
+*.lock
+
+*.log
+
+*.pyc
+
+.DS_Store
+
+.atom/
+
+.buildlog/
+
+.history
+
+.svn/
+
+flycheck_*.xml
+
+
+
+# IntelliJ related
+
+*.iml
+
+*.ipr
+
+*.iws
+
+.idea/
+
+
+
+# The .dart_tool directory contains generated files
+
+.dart_tool/
+
+
+
+# Package information
+
+**/pubspec.lock
+
+
+
+# Convenience to keep tools and docs in paths
+
+.pub/
+
+
+
+# The build output directory
+
+build/
+
+
+
+# JetBrains Rider
+
+*.sln
+
+*.suo
+
+
+
+# Environment variables
+
+.env
+
+
+
+# Flutter/Dart/Pub related
+
+**/ios/.symlinks/
+
+**/ios/Flutter/App.framework
+
+**/ios/Flutter/Flutter.framework
+
+**/ios/Flutter/Flutter.podspec
+
+**/ios/Flutter/Generated.xcconfig
+
+**/ios/Flutter/ephemeral/
+
+**/android/.gradle/
+
+**/android/local.properties
+
+**/android/app/debug/
+
+**/android/app/profile/
+
+**/android/app/release/
