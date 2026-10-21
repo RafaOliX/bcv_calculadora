@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/formato.dart';
 import '../../core/widgets/campo_numerico.dart';
+import '../../core/widgets/tarjeta_error.dart';
 import '../tasas/tasas_repositorio.dart';
 import 'conversor_controller.dart';
 
@@ -50,13 +51,77 @@ class _ConversorPageState extends State<ConversorPage> {
           ),
         ];
 
+  // ---- Diferencial --------------------------------------------------------
+  Widget _diferencial(ColorScheme cs, TextTheme tt) {
+    final d = c.diferencial;
+    final suave = tt.bodySmall?.copyWith(color: cs.outline);
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Diferencial', style: tt.titleMedium),
+            Text('Compara tu conversión con otra tasa', style: suave),
+            const SizedBox(height: 12),
+            SegmentedButton<Comparar>(
+              showSelectedIcon: false,
+              segments: [
+                for (final o in c.opcionesComparar) ButtonSegment(value: o, label: Text(o.nombre)),
+              ],
+              selected: {c.compararEfectivo},
+              onSelectionChanged: (s) => c.cambiarComparar(s.first),
+            ),
+            if (c.compararEfectivo == Comparar.otra) ...[
+              const SizedBox(height: 12),
+              CampoNumerico(
+                controller: c.compararCtrl,
+                label: 'Tasa a comparar',
+                sufijo: 'Bs',
+                estilo: tt.titleMedium,
+                onChanged: c.compararEscrita,
+              ),
+            ],
+            const SizedBox(height: 12),
+            if (d == null)
+              Text('Escribe la tasa con la que quieres comparar.', style: suave)
+            else if (!d.mismaMoneda) ...[
+              Text('${paraMostrar(d.bsA)} Bs equivalen a'),
+              Text(
+                '${paraMostrar(d.equivalente!)} ${d.simB}',
+                style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text('1 ${d.simA} = ${paraMostrar(d.cruce!, dec: 4)} ${d.simB}', style: suave),
+            ] else ...[
+              Text('Sobre ${paraMostrar(d.monto)} ${d.simA}', style: suave),
+              Text('A ${paraMostrar(d.rA, dec: 4)} Bs: ${paraMostrar(d.bsA)} Bs'),
+              Text('A ${paraMostrar(d.rB, dec: 4)} Bs: ${paraMostrar(d.bsB!)} Bs'),
+              const SizedBox(height: 6),
+              Text(
+                '${conSigno(d.diff!)} Bs  (${conSigno(d.pct! * 100)}%)',
+                style: tt.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: d.diff! >= 0 ? cs.primary : cs.error,
+                ),
+              ),
+              Text('≈ ${conSigno(d.diff! / d.rA)} ${d.simA}', style: suave),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: c,
       builder: (context, _) {
         final cs = Theme.of(context).colorScheme;
-        final sutil = Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.outline);
+        final tt = Theme.of(context).textTheme;
+        final sutil = tt.bodyMedium?.copyWith(color: cs.outline);
         final o = c.oficial;
         final base = c.oficialActual;
 
@@ -93,37 +158,14 @@ class _ConversorPageState extends State<ConversorPage> {
                     if (o?.fecha != null)
                       Text(fechaCorta(o!.fecha), style: sutil?.copyWith(fontSize: 12)),
 
-                    if (c.aviso != null) ...[
-                      const SizedBox(height: 12),
-                      Card(
-                        elevation: 0,
-                        color: cs.errorContainer,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(children: [
-                                Icon(Icons.wifi_off, size: 18, color: cs.onErrorContainer),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(c.aviso!,
-                                      style: TextStyle(color: cs.onErrorContainer)),
-                                ),
-                                TextButton(
-                                    onPressed: c.actualizar, child: const Text('Reintentar')),
-                              ]),
-                              if (c.detalle != null)
-                                SelectableText(
-                                  c.detalle!,
-                                  style: TextStyle(color: cs.onErrorContainer, fontSize: 11),
-                                ),
-                            ],
-                          ),
-                        ),
+                    const SizedBox(height: 12),
+                    if (c.aviso != null)
+                      TarjetaError(
+                        mensaje: c.aviso!,
+                        detalle: c.detalle,
+                        onReintentar: c.actualizar,
                       ),
-                    ],
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
 
                     // Campo 1: elegir tasa
                     SegmentedButton<Fuente>(
@@ -149,7 +191,7 @@ class _ConversorPageState extends State<ConversorPage> {
                       ayuda: c.esPersonalizada
                           ? 'Usando tu tasa. Toca ✕ para volver a la oficial.'
                           : 'Escribe aquí para usar otra tasa.',
-                      estilo: Theme.of(context).textTheme.titleLarge,
+                      estilo: tt.titleLarge,
                       onChanged: c.tasaEscrita,
                       acciones: c.tasaCtrl.text.isEmpty
                           ? const []
@@ -184,6 +226,9 @@ class _ConversorPageState extends State<ConversorPage> {
                       onChanged: (_) => c.montoEscrito(esBs: false),
                       acciones: _accionesMonto(c.divisaCtrl),
                     ),
+                    const SizedBox(height: 20),
+
+                    _diferencial(cs, tt),
                   ],
                 ),
               ),

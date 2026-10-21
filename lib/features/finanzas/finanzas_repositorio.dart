@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/errores.dart';
 import 'modelos.dart';
 
 class FinanzasDatos {
@@ -42,7 +43,8 @@ class FinanzasRepositorio {
         p2p: (j['p2p'] as num?)?.toDouble() ?? 0,
         paralelo: (j['paralelo'] as num?)?.toDouble(),
       );
-    } catch (_) {
+    } catch (e, st) {
+      RegistroErrores.instancia.registrar('Leer finanzas', e, st);
       return FinanzasDatos();
     }
   }
@@ -50,7 +52,7 @@ class FinanzasRepositorio {
   Future<bool> guardar(FinanzasDatos d) async {
     try {
       final p = await SharedPreferences.getInstance();
-      return await p.setString(
+      final ok = await p.setString(
         _clave,
         jsonEncode({
           'cuentas': d.cuentas.map((e) => e.toJson()).toList(),
@@ -60,7 +62,12 @@ class FinanzasRepositorio {
           'paralelo': d.paralelo,
         }),
       );
-    } catch (_) {
+      if (!ok) {
+        RegistroErrores.instancia.registrar('Guardar finanzas', 'setString devolvió false');
+      }
+      return ok;
+    } catch (e, st) {
+      RegistroErrores.instancia.registrar('Guardar finanzas', e, st);
       return false;
     }
   }

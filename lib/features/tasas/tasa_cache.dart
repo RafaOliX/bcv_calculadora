@@ -2,6 +2,7 @@
 // falla, la app sigue funcionando sin caché.
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/errores.dart';
 import 'oficial.dart';
 
 class TasaCache {
@@ -12,7 +13,8 @@ class TasaCache {
       final eur = p.getDouble('eur');
       if (usd == null || eur == null) return null;
       return Oficial(usd: usd, eur: eur, fecha: DateTime.tryParse(p.getString('fecha') ?? ''));
-    } catch (_) {
+    } catch (e, st) {
+      RegistroErrores.instancia.registrar('Leer caché de tasas', e, st);
       return null;
     }
   }
@@ -23,6 +25,8 @@ class TasaCache {
       await p.setDouble('usd', o.usd);
       await p.setDouble('eur', o.eur);
       if (o.fecha != null) await p.setString('fecha', o.fecha!.toIso8601String());
-    } catch (_) {}
+    } catch (e, st) {
+      RegistroErrores.instancia.registrar('Guardar caché de tasas', e, st);
+    }
   }
 }

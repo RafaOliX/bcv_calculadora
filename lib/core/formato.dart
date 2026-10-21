@@ -24,3 +24,7 @@ String fechaCorta(DateTime? d) {
   String dos(int n) => n.toString().padLeft(2, '0');
   return '${dos(d.day)}/${dos(d.month)}/${d.year}';
 }
+
+/// +1.234,56 / −1.234,56 (con signo explícito)
+String conSigno(double v, {int dec = 2}) =>
+    '${v < 0 ? '−' : '+'}${paraMostrar(v.abs(), dec: dec)}';

@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/errores.dart';
 import '../../core/formato.dart';
 import '../../core/widgets/campo_numerico.dart';
 import '../../core/widgets/dialogos.dart';
+import '../../core/widgets/tarjeta_error.dart';
 import '../tasas/tasas_repositorio.dart';
 import 'finanzas_controller.dart';
 import 'finanzas_repositorio.dart';
@@ -329,16 +331,10 @@ class _FinanzasPageState extends State<FinanzasPage> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
                       if (c.sinGuardado)
-                        Card(
-                          elevation: 0,
-                          color: cs.errorContainer,
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
+                        TarjetaError(
+                          mensaje:
                               'No se pudo guardar en el teléfono. Los cambios se perderán al cerrar la app.',
-                              style: TextStyle(color: cs.onErrorContainer),
-                            ),
-                          ),
+                          detalle: RegistroErrores.instancia.texto,
                         ),
                       _totales(cs, tt),
                       const SizedBox(height: 12),
