@@ -17,7 +17,7 @@ enum Comparar {
   final String nombre;
 }
 
-/// Resultado de comparar la conversión actual contra otra tasa.
+/// Resultado de comparar la misma cantidad a dos tasas distintas.
 class Diferencial {
   const Diferencial({
     required this.simA,
@@ -26,22 +26,23 @@ class Diferencial {
     required this.rA,
     required this.rB,
     required this.bsA,
+    required this.bsB,
+    required this.diff,
+    required this.pct,
     required this.mismaMoneda,
-    this.bsB,
-    this.diff,
-    this.pct,
     this.equivalente,
-    this.cruce,
   });
 
   final String simA; // moneda de la conversión actual
   final String simB; // moneda de la tasa comparada
-  final double monto; // cantidad en simA sobre la que se compara
+  final double monto; // cantidad (el mismo número) en ambas monedas
   final double rA, rB;
-  final double bsA;
+  final double bsA; // monto × tasa A
+  final double bsB; // monto × tasa B
+  final double diff; // bsB − bsA
+  final double pct; // rB / rA − 1
   final bool mismaMoneda;
-  final double? bsB, diff, pct; // misma moneda: otra tasa para la misma divisa
-  final double? equivalente, cruce; // distinta moneda: equivalencia y cruce
+  final double? equivalente; // distinta moneda: bsA / rB (mismos Bs en la otra moneda)
 }
 
 class ConversorController extends ChangeNotifier {
@@ -109,6 +110,7 @@ class ConversorController extends ChangeNotifier {
     if (rB == null || rB <= 0) return null;
     final monto = parsear(divisaCtrl.text) ?? 1;
     final bsA = monto * rA;
+    final bsB = monto * rB;
     final misma = simB == simbolo;
     return Diferencial(
       simA: simbolo,
@@ -117,12 +119,11 @@ class ConversorController extends ChangeNotifier {
       rA: rA,
       rB: rB,
       bsA: bsA,
+      bsB: bsB,
+      diff: bsB - bsA,
+      pct: rB / rA - 1,
       mismaMoneda: misma,
-      bsB: misma ? monto * rB : null,
-      diff: misma ? monto * rB - bsA : null,
-      pct: misma ? rB / rA - 1 : null,
       equivalente: misma ? null : bsA / rB,
-      cruce: misma ? null : rA / rB,
     );
   }
 

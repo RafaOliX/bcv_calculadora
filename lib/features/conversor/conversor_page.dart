@@ -52,6 +52,17 @@ class _ConversorPageState extends State<ConversorPage> {
         ];
 
   // ---- Diferencial --------------------------------------------------------
+  Widget _fila(String etiqueta, String valor, {Color? color, bool fuerte = false}) {
+    final w = fuerte ? FontWeight.bold : FontWeight.normal;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        Expanded(child: Text(etiqueta, style: TextStyle(fontWeight: w))),
+        Text(valor, style: TextStyle(fontWeight: w, color: color)),
+      ]),
+    );
+  }
+
   Widget _diferencial(ColorScheme cs, TextTheme tt) {
     final d = c.diferencial;
     final suave = tt.bodySmall?.copyWith(color: cs.outline);
@@ -63,7 +74,7 @@ class _ConversorPageState extends State<ConversorPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Diferencial', style: tt.titleMedium),
-            Text('Compara tu conversión con otra tasa', style: suave),
+            Text('La misma cantidad a dos tasas distintas', style: suave),
             const SizedBox(height: 12),
             SegmentedButton<Comparar>(
               showSelectedIcon: false,
@@ -86,27 +97,22 @@ class _ConversorPageState extends State<ConversorPage> {
             const SizedBox(height: 12),
             if (d == null)
               Text('Escribe la tasa con la que quieres comparar.', style: suave)
-            else if (!d.mismaMoneda) ...[
-              Text('${paraMostrar(d.bsA)} Bs equivalen a'),
-              Text(
-                '${paraMostrar(d.equivalente!)} ${d.simB}',
-                style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              Text('1 ${d.simA} = ${paraMostrar(d.cruce!, dec: 4)} ${d.simB}', style: suave),
-            ] else ...[
-              Text('Sobre ${paraMostrar(d.monto)} ${d.simA}', style: suave),
-              Text('A ${paraMostrar(d.rA, dec: 4)} Bs: ${paraMostrar(d.bsA)} Bs'),
-              Text('A ${paraMostrar(d.rB, dec: 4)} Bs: ${paraMostrar(d.bsB!)} Bs'),
-              const SizedBox(height: 6),
-              Text(
-                '${conSigno(d.diff!)} Bs  (${conSigno(d.pct! * 100)}%)',
-                style: tt.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: d.diff! >= 0 ? cs.primary : cs.error,
+            else ...[
+              _fila('${paraMostrar(d.monto)} ${d.simA} a ${paraMostrar(d.rA, dec: 4)}',
+                  '${paraMostrar(d.bsA)} Bs'),
+              _fila('${paraMostrar(d.monto)} ${d.simB} a ${paraMostrar(d.rB, dec: 4)}',
+                  '${paraMostrar(d.bsB)} Bs'),
+              const Divider(height: 20),
+              _fila('Diferencia', '${conSigno(d.diff)} Bs  (${conSigno(d.pct * 100)}%)',
+                  fuerte: true, color: d.diff >= 0 ? cs.primary : cs.error),
+              if (!d.mismaMoneda) ...[
+                const SizedBox(height: 12),
+                Text('Con los mismos ${paraMostrar(d.bsA)} Bs', style: suave),
+                Text(
+                  '${paraMostrar(d.monto)} ${d.simA} = ${paraMostrar(d.equivalente!)} ${d.simB}',
+                  style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              Text('≈ ${conSigno(d.diff! / d.rA)} ${d.simA}', style: suave),
+              ],
             ],
           ],
         ),

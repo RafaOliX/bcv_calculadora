@@ -10,6 +10,8 @@ import '../../core/widgets/tarjeta_error.dart';
 import '../tasas/tasas_repositorio.dart';
 import 'finanzas_controller.dart';
 import 'finanzas_repositorio.dart';
+import 'ajustes_page.dart';
+import 'dialogo_etiqueta.dart';
 import 'historial_page.dart';
 import 'modelos.dart';
 
@@ -174,17 +176,6 @@ class _FinanzasPageState extends State<FinanzasPage> {
             if (v != null && v > 0) c.setParalelo(v);
           },
         ),
-        ListTile(
-          dense: true,
-          title: const Text('P2P pendiente'),
-          subtitle: const Text('Se resta del total'),
-          trailing: Text('${paraMostrar(c.p2p)} \$'),
-          onTap: () async {
-            final v = await pedirNumero(context,
-                titulo: 'P2P pendiente', sufijo: 'USD', inicial: c.p2p);
-            if (v != null && v >= 0) c.setP2p(v);
-          },
-        ),
       ]),
     );
   }
@@ -315,6 +306,14 @@ class _FinanzasPageState extends State<FinanzasPage> {
             title: const Text('Mis finanzas'),
             actions: [
               IconButton(
+                tooltip: 'Ajustes',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => AjustesPage(c: c)),
+                ),
+              ),
+              IconButton(
                 tooltip: 'Historial',
                 icon: const Icon(Icons.history),
                 onPressed: () => Navigator.push(
@@ -346,11 +345,17 @@ class _FinanzasPageState extends State<FinanzasPage> {
                       const SizedBox(height: 20),
                       FilledButton.icon(
                         icon: const Icon(Icons.save),
-                        label: const Text('Guardar cierre de hoy'),
-                        onPressed: () {
-                          final err = c.guardarCierre();
+                        label: const Text('Guardar cierre'),
+                        onPressed: () async {
+                          final e = await pedirEtiqueta(
+                            context,
+                            titulo: 'Guardar cierre',
+                            sugeridas: c.etiquetasSugeridas,
+                          );
+                          if (e == null || !mounted) return;
+                          final err = c.guardarCierre(etiqueta: e);
                           HapticFeedback.lightImpact();
-                          _aviso(err ?? 'Cierre de hoy guardado');
+                          _aviso(err ?? 'Cierre guardado');
                         },
                       ),
                     ],

@@ -28,3 +28,8 @@ String fechaCorta(DateTime? d) {
 /// +1.234,56 / −1.234,56 (con signo explícito)
 String conSigno(double v, {int dec = 2}) =>
     '${v < 0 ? '−' : '+'}${paraMostrar(v.abs(), dec: dec)}';
+
+String horaCorta(DateTime d) {
+  String dos(int n) => n.toString().padLeft(2, '0');
+  return '${dos(d.hour)}:${dos(d.minute)}';
+}

@@ -36,14 +36,14 @@ Future<double?> pedirNumero(
   );
 }
 
-Future<bool> confirmar(BuildContext context, String mensaje) async {
+Future<bool> confirmar(BuildContext context, String mensaje, {String accion = 'Eliminar'}) async {
   final r = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       content: Text(mensaje),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Eliminar')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(accion)),
       ],
     ),
   );

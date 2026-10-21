@@ -47,46 +47,52 @@ class Meta {
       );
 }
 
-/// Una "fila" de tu Excel: la foto de un día.
+/// Una "fila" de tu Excel: la foto de un momento. Puede haber varias por día.
 class Cierre {
   Cierre({
-    required this.fecha,
+    required this.id,
+    required this.momento,
     required this.bcv,
     required this.paralelo,
-    required this.p2p,
     required this.totalBcv,
     required this.totalParalelo,
     required this.saldos,
+    this.etiqueta,
   });
 
-  final String fecha; // yyyy-MM-dd
+  final String id;
+  final DateTime momento;
   final double bcv;
   final double paralelo;
-  final double p2p;
   final double totalBcv;
   final double totalParalelo;
   final Map<String, double> saldos; // nombre de cuenta -> saldo
-
-  DateTime get fechaDate => DateTime.parse(fecha);
+  String? etiqueta; // por qué: "Salida con amigos", "Compras de juegos"...
 
   Map<String, dynamic> toJson() => {
-        'fecha': fecha,
+        'id': id,
+        'momento': momento.toIso8601String(),
         'bcv': bcv,
         'paralelo': paralelo,
-        'p2p': p2p,
         'totalBcv': totalBcv,
         'totalParalelo': totalParalelo,
         'saldos': saldos,
+        'etiqueta': etiqueta,
       };
 
-  factory Cierre.fromJson(Map<String, dynamic> j) => Cierre(
-        fecha: j['fecha'] as String,
-        bcv: (j['bcv'] as num).toDouble(),
-        paralelo: (j['paralelo'] as num).toDouble(),
-        p2p: (j['p2p'] as num).toDouble(),
-        totalBcv: (j['totalBcv'] as num).toDouble(),
-        totalParalelo: (j['totalParalelo'] as num).toDouble(),
-        saldos: (j['saldos'] as Map<String, dynamic>)
-            .map((k, v) => MapEntry(k, (v as num).toDouble())),
-      );
+  /// También lee cierres de versiones anteriores (solo fecha, sin id ni etiqueta).
+  factory Cierre.fromJson(Map<String, dynamic> j) {
+    final raw = (j['momento'] ?? j['fecha']) as String;
+    return Cierre(
+      id: (j['id'] as String?) ?? 'old_$raw',
+      momento: DateTime.parse(raw),
+      bcv: (j['bcv'] as num).toDouble(),
+      paralelo: (j['paralelo'] as num).toDouble(),
+      totalBcv: (j['totalBcv'] as num).toDouble(),
+      totalParalelo: (j['totalParalelo'] as num).toDouble(),
+      saldos: (j['saldos'] as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, (v as num).toDouble())),
+      etiqueta: j['etiqueta'] as String?,
+    );
+  }
 }
