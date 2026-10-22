@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 
 import '../../core/formato.dart';
+import '../../core/tema.dart';
+import '../../core/widgets/visuales.dart';
 import '../../core/widgets/dialogos.dart';
 import 'dialogo_etiqueta.dart';
 import 'finanzas_controller.dart';
@@ -47,14 +49,26 @@ class HistorialPage extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ExpansionTile(
                         shape: const Border(),
-                        title: Text('${_dia(m)}  ${fechaCorta(m)}  ${horaCorta(m)}'),
+                        leading: CircleAvatar(
+                          backgroundColor: cs.primaryContainer,
+                          child: Text(
+                            _dia(m),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, color: cs.onPrimaryContainer),
+                          ),
+                        ),
+                        title: Text('${fechaCorta(m)}  ${horaCorta(m)}'),
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (x.etiqueta != null)
-                              Text(
-                                x.etiqueta!,
-                                style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Insignia(
+                                  texto: x.etiqueta!,
+                                  color: cs.primary,
+                                  icono: Icons.label,
+                                ),
                               ),
                             Text(
                               'BCV ${paraMostrar(x.bcv)} · Paralelo ${paraMostrar(x.paralelo)}',
@@ -70,12 +84,10 @@ class HistorialPage extends StatelessWidget {
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                             ),
                             if (delta != null)
-                              Text(
-                                '${conSigno(delta)} \$',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: delta >= 0 ? cs.primary : cs.error,
-                                ),
+                              Insignia(
+                                texto: '${conSigno(delta)} \$',
+                                color: delta >= 0 ? Paleta.sube : Paleta.baja,
+                                icono: delta >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
                               ),
                           ],
                         ),
