@@ -1,18 +1,21 @@
-// Tema y colores. El mismo color siempre significa lo mismo en toda la app.
+// Tema y colores. El mismo color siempre significa lo mismo en toda la app,
+// y el usuario puede cambiarlos desde Ajustes > Colores y apariencia.
 import 'package:flutter/material.dart';
 
+import 'colores.dart';
+
 class Paleta {
-  static const usd = Color(0xFF2E9E6B); // verde: dólares
-  static const eur = Color(0xFF3F6FE0); // azul: euros
-  static const bs = Color(0xFFE8A33D); // ámbar: bolívares
-  static const usdt = Color(0xFF1FA39A); // turquesa: USDT
-  static const paralelo = Color(0xFF8E5CD9); // violeta: tasa paralelo
-  static const sube = Color(0xFF2E9E6B);
-  static const baja = Color(0xFFE0524D);
+  static Color get usd => ColoresApp.instancia.de(ClaveColor.usd);
+  static Color get eur => ColoresApp.instancia.de(ClaveColor.eur);
+  static Color get bs => ColoresApp.instancia.de(ClaveColor.bs);
+  static Color get usdt => ColoresApp.instancia.de(ClaveColor.usdt);
+  static Color get paralelo => ColoresApp.instancia.de(ClaveColor.paralelo);
+  static Color get sube => ColoresApp.instancia.de(ClaveColor.sube);
+  static Color get baja => ColoresApp.instancia.de(ClaveColor.baja);
 }
 
 ThemeData construirTema(Brightness brillo) {
-  final cs = ColorScheme.fromSeed(seedColor: const Color(0xFF0F8F7E), brightness: brillo);
+  final cs = ColorScheme.fromSeed(seedColor: ColoresApp.instancia.principal, brightness: brillo);
   return ThemeData(
     useMaterial3: true,
     colorScheme: cs,

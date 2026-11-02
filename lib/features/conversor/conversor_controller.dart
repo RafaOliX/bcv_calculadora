@@ -3,6 +3,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/formato.dart';
+import '../../core/hora_venezuela.dart';
 import '../tasas/oficial.dart';
 import '../tasas/tasas_repositorio.dart';
 
@@ -47,6 +48,7 @@ class Diferencial {
 
 class ConversorController extends ChangeNotifier {
   ConversorController(this._repo) {
+    RelojVzla.instancia.addListener(_porReloj);
     _iniciar();
   }
 
@@ -60,6 +62,7 @@ class ConversorController extends ChangeNotifier {
   final compararCtrl = TextEditingController();
 
   Oficial? oficial;
+  Oficial? proxima; // tasa ya publicada que rige desde un día futuro
   Fuente fuente = Fuente.usd;
   bool cargando = false;
   String? aviso;
@@ -131,10 +134,14 @@ class ConversorController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Medianoche en Venezuela (o volver a la app): toma la tasa que ya rige.
+  void _porReloj() => actualizar();
+
   Future<void> _iniciar() async {
     final guardada = await _repo.leerGuardada();
     if (guardada != null) {
       oficial = guardada;
+      proxima = await _repo.proxima();
       _notificar();
     }
     await actualizar();
@@ -148,6 +155,7 @@ class ConversorController extends ChangeNotifier {
     _notificar();
     try {
       oficial = await _repo.actualizar();
+      proxima = await _repo.proxima();
       _recalcular();
     } catch (e) {
       aviso = oficial == null
@@ -166,10 +174,10 @@ class ConversorController extends ChangeNotifier {
     if (t == null || t <= 0) return;
     if (_editadoBs) {
       final bs = parsear(bsCtrl.text);
-      divisaCtrl.text = bs == null ? '' : paraInput(bs / t);
+      divisaCtrl.text = bs == null ? '' : paraCampo(bs / t);
     } else {
       final d = parsear(divisaCtrl.text);
-      bsCtrl.text = d == null ? '' : paraInput(d * t);
+      bsCtrl.text = d == null ? '' : paraCampo(d * t);
     }
   }
 
@@ -198,6 +206,17 @@ class ConversorController extends ChangeNotifier {
     _notificar();
   }
 
+  /// Intercambia lo escrito en los dos campos (por si pusiste los bolívares en
+  /// el campo de dólares o al revés) y recalcula el otro.
+  void intercambiarMontos() {
+    final a = bsCtrl.text;
+    bsCtrl.text = divisaCtrl.text;
+    divisaCtrl.text = a;
+    _editadoBs = !_editadoBs; // el texto que escribiste ahora está en el otro campo
+    _recalcular();
+    _notificar();
+  }
+
   void limpiarMontos() {
     bsCtrl.clear();
     divisaCtrl.clear();
@@ -207,6 +226,7 @@ class ConversorController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    RelojVzla.instancia.removeListener(_porReloj);
     tasaCtrl.dispose();
     bsCtrl.dispose();
     divisaCtrl.dispose();

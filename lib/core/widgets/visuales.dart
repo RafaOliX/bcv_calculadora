@@ -114,3 +114,91 @@ class Insignia extends StatelessWidget {
     );
   }
 }
+
+/// Mini gráfica de línea (sin paquetes externos).
+class Sparkline extends StatelessWidget {
+  const Sparkline({super.key, required this.valores, required this.color, this.alto = 56});
+
+  final List<double> valores;
+  final Color color;
+  final double alto;
+
+  @override
+  Widget build(BuildContext context) {
+    if (valores.length < 2) {
+      return SizedBox(
+        height: alto,
+        child: Center(
+          child: Text(
+            'Se necesitan al menos 2 cierres para la gráfica',
+            style: TextStyle(color: Theme.of(context).colorScheme.outline, fontSize: 12),
+          ),
+        ),
+      );
+    }
+    var v = valores;
+    if (v.length > 120) {
+      final paso = v.length / 120;
+      v = [for (var i = 0; i < 120; i++) valores[(i * paso).floor()], valores.last];
+    }
+    return SizedBox(
+      height: alto,
+      width: double.infinity,
+      child: CustomPaint(painter: _SparkPainter(v, color)),
+    );
+  }
+}
+
+class _SparkPainter extends CustomPainter {
+  _SparkPainter(this.v, this.color);
+
+  final List<double> v;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var mn = v.first, mx = v.first;
+    for (final x in v) {
+      if (x < mn) mn = x;
+      if (x > mx) mx = x;
+    }
+    final rango = (mx - mn) == 0 ? 1.0 : mx - mn;
+    Offset punto(int i) => Offset(
+          size.width * i / (v.length - 1),
+          size.height - 4 - (size.height - 8) * (v[i] - mn) / rango,
+        );
+
+    final linea = Path()..moveTo(punto(0).dx, punto(0).dy);
+    for (var i = 1; i < v.length; i++) {
+      final p = punto(i);
+      linea.lineTo(p.dx, p.dy);
+    }
+    final area = Path.from(linea)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: 0.30), color.withValues(alpha: 0)],
+        ).createShader(Offset.zero & size),
+    );
+    canvas.drawPath(
+      linea,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(punto(v.length - 1), 4, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparkPainter old) => old.v != v || old.color != color;
+}

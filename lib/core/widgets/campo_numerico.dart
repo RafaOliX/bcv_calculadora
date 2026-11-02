@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../formato_contable.dart';
+
 class CampoNumerico extends StatelessWidget {
   const CampoNumerico({
     super.key,
@@ -14,6 +16,7 @@ class CampoNumerico extends StatelessWidget {
     this.acciones = const [],
     this.estilo,
     this.autoenfocar = false,
+    this.decimales = 2,
     this.icono,
     this.color,
   });
@@ -27,6 +30,7 @@ class CampoNumerico extends StatelessWidget {
   final List<Widget> acciones;
   final TextStyle? estilo;
   final bool autoenfocar;
+  final int decimales; // máximo de decimales que se pueden escribir
   final IconData? icono;
   final Color? color;
 
@@ -36,7 +40,7 @@ class CampoNumerico extends StatelessWidget {
       controller: controller,
       autofocus: autoenfocar,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+      inputFormatters: [FormatoContable(decimales: decimales)],
       style: estilo ?? Theme.of(context).textTheme.headlineSmall,
       onChanged: onChanged,
       decoration: InputDecoration(

@@ -1,10 +1,12 @@
-// Importar el historial desde Excel: pegas la hoja y eliges qué es cada columna.
+// Importar el historial de saldos desde un archivo CSV: eliges el archivo y
+// confirmas qué es cada columna.
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../core/archivos.dart';
 import '../../core/widgets/tarjeta_error.dart';
 import 'finanzas_controller.dart';
 import 'importador.dart';
+import 'plantillas.dart';
 
 class ImportarPage extends StatefulWidget {
   const ImportarPage({super.key, required this.c});
@@ -19,21 +21,53 @@ class _ImportarPageState extends State<ImportarPage> {
   TablaImportada? tabla;
   List<Rol> roles = [];
   String? error;
+  bool leyendo = false;
 
-  Future<void> _pegar() async {
-    final d = await Clipboard.getData('text/plain');
-    final t = leerTabla(d?.text ?? '');
-    setState(() {
-      if (t == null) {
-        tabla = null;
-        error = 'No encontré una tabla. En Excel, selecciona desde la fila de encabezados '
-            'hasta la última fila, copia (Ctrl+C) y vuelve a tocar Pegar.';
-      } else {
-        error = null;
-        tabla = t;
-        roles = adivinarRoles(t.encabezados);
+  Future<void> _plantilla() async {
+    try {
+      final ok = await guardarArchivo(nombre: 'plantilla_historial.csv', texto: plantillaHistorial());
+      if (ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Plantilla guardada'), behavior: SnackBarBehavior.floating),
+        );
       }
+    } catch (e) {
+      if (mounted) setState(() => error = 'No pude guardar la plantilla: $e');
+    }
+  }
+
+  Future<void> _elegir() async {
+    setState(() {
+      leyendo = true;
+      error = null;
     });
+    try {
+      final texto = await elegirArchivoTexto();
+      if (!mounted) return;
+      if (texto == null) {
+        setState(() => leyendo = false);
+        return;
+      }
+      final t = leerTabla(texto);
+      setState(() {
+        leyendo = false;
+        if (t == null) {
+          tabla = null;
+          error = 'El archivo no tiene datos. La primera fila son los encabezados y debajo van tus filas. '
+              'Descarga la plantilla para ver el formato.';
+        } else {
+          tabla = t;
+          roles = adivinarRoles(t.encabezados);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        leyendo = false;
+        tabla = null;
+        error = 'No pude leer el archivo: $e';
+      });
+    }
   }
 
   List<Widget> _mapeo(ColorScheme cs) {
@@ -95,21 +129,28 @@ class _ImportarPageState extends State<ImportarPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Importar desde Excel')),
+      appBar: AppBar(title: const Text('Importar historial')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            '1. En Excel selecciona tu tabla, desde la fila de encabezados hasta el final.\n'
-            '2. Copia (Ctrl+C).\n'
-            '3. Aquí toca Pegar.\n\n'
-            'Fechas como dd/mm/aaaa y decimales con coma, como en tu hoja.',
+            '1. Descarga la plantilla.\n'
+            '2. Llénala en Excel (o pega tu propia hoja) y guárdala como CSV.\n'
+            '3. Elige el archivo aquí.\n\n'
+            'Fechas como dd/mm/aaaa y decimales con coma. En Excel: '
+            'Guardar como > CSV UTF-8 (delimitado por comas).',
           ),
           const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.download),
+            label: const Text('Descargar plantilla'),
+            onPressed: _plantilla,
+          ),
+          const SizedBox(height: 8),
           FilledButton.icon(
-            icon: const Icon(Icons.content_paste),
-            label: const Text('Pegar desde el portapapeles'),
-            onPressed: _pegar,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Elegir archivo CSV'),
+            onPressed: leyendo ? null : _elegir,
           ),
           const SizedBox(height: 12),
           if (error != null) TarjetaError(mensaje: error!),

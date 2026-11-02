@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/errores.dart';
+import '../movimientos/movimiento.dart';
 import 'modelos.dart';
 
 class FinanzasDatos {
@@ -12,14 +13,17 @@ class FinanzasDatos {
     List<Cuenta>? cuentas,
     List<Meta>? metas,
     List<Cierre>? cierres,
+    List<Movimiento>? movimientos,
     this.paralelo,
   })  : cuentas = cuentas ?? [],
         metas = metas ?? [],
-        cierres = cierres ?? [];
+        cierres = cierres ?? [],
+        movimientos = movimientos ?? [];
 
   final List<Cuenta> cuentas;
   final List<Meta> metas;
   final List<Cierre> cierres;
+  final List<Movimiento> movimientos;
   final double? paralelo;
 }
 
@@ -31,6 +35,7 @@ class FinanzasRepositorio {
         'cuentas': d.cuentas.map((e) => e.toJson()).toList(),
         'metas': d.metas.map((e) => e.toJson()).toList(),
         'cierres': d.cierres.map((e) => e.toJson()).toList(),
+        'movimientos': d.movimientos.map((e) => e.toJson()).toList(),
         'paralelo': d.paralelo,
       });
 
@@ -43,6 +48,7 @@ class FinanzasRepositorio {
       cuentas: lista('cuentas', Cuenta.fromJson),
       metas: lista('metas', Meta.fromJson),
       cierres: lista('cierres', Cierre.fromJson),
+      movimientos: lista('movimientos', Movimiento.fromJson),
       paralelo: (j['paralelo'] as num?)?.toDouble(),
     );
   }

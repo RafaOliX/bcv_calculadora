@@ -11,8 +11,9 @@ Future<double?> pedirNumero(
   String etiqueta = 'Monto',
   String? sufijo,
   double? inicial,
+  int decimales = 2,
 }) {
-  final c = TextEditingController(text: inicial == null ? '' : paraInput(inicial));
+  final c = TextEditingController(text: inicial == null ? '' : paraCampo(inicial, decimales));
   return showDialog<double>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -22,6 +23,7 @@ Future<double?> pedirNumero(
         label: etiqueta,
         sufijo: sufijo,
         autoenfocar: true,
+        decimales: decimales,
         estilo: Theme.of(ctx).textTheme.titleLarge,
         onChanged: (_) {},
       ),

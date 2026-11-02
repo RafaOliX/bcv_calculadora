@@ -2,14 +2,19 @@
 import 'package:flutter/foundation.dart';
 
 import '../../core/errores.dart';
+import '../../core/csv.dart';
 import '../../core/formato.dart';
+import '../../core/hora_venezuela.dart';
 import '../tasas/tasas_repositorio.dart';
 import 'finanzas_repositorio.dart';
+import '../movimientos/importador_mov.dart';
+import '../movimientos/movimiento.dart';
 import 'importador.dart';
 import 'modelos.dart';
 
 class FinanzasController extends ChangeNotifier {
   FinanzasController(this._repo, this._tasas) {
+    RelojVzla.instancia.addListener(_porReloj);
     _iniciar();
   }
 
@@ -19,6 +24,7 @@ class FinanzasController extends ChangeNotifier {
   List<Cuenta> cuentas = [];
   List<Meta> metas = [];
   List<Cierre> cierres = []; // siempre ordenados del más antiguo al más reciente
+  List<Movimiento> movimientos = []; // ídem
   double? bcv;
   double? paralelo;
   DateTime? fechaBcv;
@@ -66,12 +72,39 @@ class FinanzasController extends ChangeNotifier {
 
   void _ordenar() => cierres.sort((x, y) => x.momento.compareTo(y.momento));
 
+  void _ordenarMov() => movimientos.sort((x, y) => x.momento.compareTo(y.momento));
+
+  String nuevoId() => _id();
+
+  /// Medianoche en Venezuela (o volver a la app): toma la tasa que ya rige.
+  Future<void> _porReloj() async {
+    final g = await _tasas.leerGuardada();
+    if (g != null) {
+      bcv = g.usd;
+      fechaBcv = g.fecha;
+      _notificar();
+    }
+    try {
+      final o = await _tasas.actualizar();
+      bcv = o.usd;
+      fechaBcv = o.fecha;
+      _notificar();
+    } catch (_) {}
+    final p = await _tasas.paralelo();
+    if (p != null) {
+      paralelo = p;
+      _cambio();
+    }
+  }
+
   Future<void> _iniciar() async {
     final d = await _repo.leer();
     cuentas = d.cuentas;
     metas = d.metas;
     cierres = d.cierres;
     _ordenar();
+    movimientos = d.movimientos;
+    _ordenarMov();
     paralelo = d.paralelo;
     cargando = false;
     _notificar();
@@ -173,6 +206,81 @@ class FinanzasController extends ChangeNotifier {
     _cambio();
   }
 
+  // ---- Movimientos --------------------------------------------------------
+  Cuenta? _cuentaPorId(String id) {
+    for (final c in cuentas) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  /// Aplica (o revierte) el efecto de un movimiento sobre el saldo de su cuenta.
+  void _efecto(Movimiento m, {required bool aplicar}) {
+    if (!m.ajustoSaldo) return;
+    final cu = _cuentaPorId(m.cuentaId);
+    if (cu == null) return;
+    final signo = (m.tipo.esGasto ? -1 : 1) * (aplicar ? 1 : -1);
+    cu.saldo += signo * m.monto;
+  }
+
+  /// Guarda un movimiento nuevo, o reemplaza `anterior` si se está editando.
+  void guardarMovimiento(Movimiento m, {Movimiento? anterior}) {
+    if (anterior != null) {
+      _efecto(anterior, aplicar: false);
+      movimientos.removeWhere((x) => x.id == anterior.id);
+    }
+    movimientos.add(m);
+    _efecto(m, aplicar: true);
+    _ordenarMov();
+    _cambio();
+  }
+
+  void eliminarMovimiento(Movimiento m) {
+    _efecto(m, aplicar: false);
+    movimientos.removeWhere((x) => x.id == m.id);
+    _cambio();
+  }
+
+  List<String> get etiquetasSugeridasMov {
+    final r = <String>[];
+    for (final m in movimientos.reversed) {
+      final e = m.etiqueta;
+      if (e != null && e.isNotEmpty && !r.contains(e)) r.add(e);
+    }
+    for (final e in ['Comida', 'Transporte', 'Salida con amigos', 'Juegos', 'Servicios', 'Compras', 'Sueldo']) {
+      if (!r.contains(e)) r.add(e);
+    }
+    return r.take(10).toList();
+  }
+
+  /// Movimientos como filas (para CSV).
+  List<List<String>> filasMovimientos() {
+    String n(double v, [int dec = 2]) => paraInput(v, dec);
+    return [
+      [
+        'Fecha', 'Hora', 'Tipo', 'Etiqueta', 'Cuenta', 'Moneda', 'Monto',
+        'Tasa BCV', 'Tasa paralelo', 'USD (BCV)', 'USD (paralelo)', 'Nota',
+      ],
+      for (final m in movimientos)
+        [
+          fechaCorta(m.momento),
+          horaCorta(m.momento),
+          m.tipo.nombre,
+          m.etiqueta ?? '',
+          m.cuentaNombre,
+          m.moneda.etiqueta,
+          n(m.monto),
+          m.bcv > 0 ? n(m.bcv, 4) : '',
+          m.paralelo == null ? '' : n(m.paralelo!, 4),
+          n(m.valorUsd(false)),
+          n(m.valorUsd(true)),
+          m.nota ?? '',
+        ],
+    ];
+  }
+
+  String csvMovimientos() => escribirCsv(filasMovimientos());
+
   // ---- Importar / exportar -----------------------------------------------
   /// Agrega los cierres importados (omite los que ya existen en ese mismo momento)
   /// y crea las cuentas nuevas. Devuelve cuántos cierres se agregaron.
@@ -193,32 +301,62 @@ class FinanzasController extends ChangeNotifier {
     return n;
   }
 
-  /// Tabla separada por tabulaciones: se pega directo en Excel.
-  String exportarTabla() {
+  /// Historial de cierres como filas (para CSV). Cada cuenta lleva su moneda: "Provincial (Bs)".
+  List<List<String>> filasHistorial() {
     final nombres = <String>{for (final x in cierres) ...x.saldos.keys}.toList();
+    final monedas = {for (final cu in cuentas) cu.nombre: cu.moneda.etiqueta};
     String n(double v, [int dec = 2]) => paraInput(v, dec);
-    final b = StringBuffer()
-      ..writeln(['Fecha', 'Hora', 'Etiqueta', 'Tasa BCV', 'Tasa paralelo', ...nombres, 'Total BCV', 'Total paralelo']
-          .join('\t'));
-    for (final x in cierres) {
-      b.writeln([
-        fechaCorta(x.momento),
-        horaCorta(x.momento),
-        (x.etiqueta ?? '').replaceAll('\t', ' '),
-        n(x.bcv, 4),
-        n(x.paralelo, 4),
-        for (final nom in nombres) x.saldos.containsKey(nom) ? n(x.saldos[nom]!) : '',
-        n(x.totalBcv),
-        n(x.totalParalelo),
-      ].join('\t'));
+    String encabezado(String nom) => monedas.containsKey(nom) ? '$nom (${monedas[nom]})' : nom;
+    return [
+      [
+        'Fecha', 'Hora', 'Etiqueta', 'Tasa BCV', 'Tasa paralelo',
+        for (final nom in nombres) encabezado(nom),
+        'Total BCV', 'Total paralelo',
+      ],
+      for (final x in cierres)
+        [
+          fechaCorta(x.momento),
+          horaCorta(x.momento),
+          x.etiqueta ?? '',
+          n(x.bcv, 4),
+          n(x.paralelo, 4),
+          for (final nom in nombres) x.saldos.containsKey(nom) ? n(x.saldos[nom]!) : '',
+          n(x.totalBcv),
+          n(x.totalParalelo),
+        ],
+    ];
+  }
+
+  String csvHistorial() => escribirCsv(filasHistorial());
+
+  /// Agrega los movimientos importados (omite los repetidos) y crea las cuentas nuevas.
+  /// Devuelve cuántos movimientos se agregaron.
+  int importarMovimientos(ResultadoMov r) {
+    for (final cu in r.cuentasNuevas) {
+      if (!cuentas.any((e) => e.nombre.toLowerCase() == cu.nombre.toLowerCase())) cuentas.add(cu);
     }
-    return b.toString();
+    bool igual(Movimiento a, Movimiento b) =>
+        a.momento == b.momento &&
+        a.monto == b.monto &&
+        a.tipo == b.tipo &&
+        a.cuentaNombre.toLowerCase() == b.cuentaNombre.toLowerCase();
+    var n = 0;
+    for (final m in r.movimientos) {
+      if (!movimientos.any((x) => igual(x, m))) {
+        movimientos.add(m);
+        n++;
+      }
+    }
+    _ordenarMov();
+    _cambio();
+    return n;
   }
 
   String exportarJson() => FinanzasRepositorio.codificar(FinanzasDatos(
         cuentas: cuentas,
         metas: metas,
         cierres: cierres,
+        movimientos: movimientos,
         paralelo: paralelo,
       ));
 
@@ -231,6 +369,8 @@ class FinanzasController extends ChangeNotifier {
       metas = d.metas;
       cierres = d.cierres;
       _ordenar();
+      movimientos = d.movimientos;
+      _ordenarMov();
       paralelo = d.paralelo ?? paralelo;
       _cambio();
       return null;
@@ -251,6 +391,7 @@ class FinanzasController extends ChangeNotifier {
       cuentas: cuentas,
       metas: metas,
       cierres: cierres,
+      movimientos: movimientos,
       paralelo: paralelo,
     ));
     if (sinGuardado == ok) {
@@ -262,6 +403,7 @@ class FinanzasController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    RelojVzla.instancia.removeListener(_porReloj);
     super.dispose();
   }
 }

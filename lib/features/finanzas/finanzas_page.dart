@@ -3,36 +3,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/errores.dart';
+import '../../core/colores.dart';
 import '../../core/formato.dart';
 import '../../core/tema.dart';
 import '../../core/widgets/visuales.dart';
 import '../../core/widgets/campo_numerico.dart';
 import '../../core/widgets/dialogos.dart';
 import '../../core/widgets/tarjeta_error.dart';
-import '../tasas/tasas_repositorio.dart';
 import 'finanzas_controller.dart';
-import 'finanzas_repositorio.dart';
 import 'ajustes_page.dart';
 import 'dialogo_etiqueta.dart';
 import 'historial_page.dart';
 import 'modelos.dart';
 
 class FinanzasPage extends StatefulWidget {
-  const FinanzasPage({super.key});
+  const FinanzasPage({super.key, required this.c});
+
+  final FinanzasController c;
 
   @override
   State<FinanzasPage> createState() => _FinanzasPageState();
 }
 
 class _FinanzasPageState extends State<FinanzasPage> {
-  late final FinanzasController c =
-      FinanzasController(FinanzasRepositorio(), TasasRepositorio());
-
-  @override
-  void dispose() {
-    c.dispose();
-    super.dispose();
-  }
+  FinanzasController get c => widget.c;
 
   String _m(double? v) => v == null ? '—' : paraMostrar(v);
 
@@ -171,7 +165,10 @@ class _FinanzasPageState extends State<FinanzasPage> {
     final brecha = (c.bcv != null && c.paralelo != null) ? c.paralelo! / c.bcv! - 1 : null;
     return Aparecer(
       child: TarjetaDegradado(
-        colores: const [Color(0xFF0B7A6B), Color(0xFF1B5FB5)],
+        colores: [
+          Color.lerp(ColoresApp.instancia.principal, Colors.black, 0.35)!,
+          ColoresApp.instancia.principal,
+        ],
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Row(children: [
             Icon(Icons.account_balance_wallet, color: Colors.white70, size: 18),
@@ -262,7 +259,7 @@ class _FinanzasPageState extends State<FinanzasPage> {
           pie: 'Toca para editar',
           onTap: () async {
             final v = await pedirNumero(context,
-                titulo: 'Tasa paralelo', sufijo: 'Bs', inicial: c.paralelo);
+                titulo: 'Tasa paralelo', sufijo: 'Bs', inicial: c.paralelo, decimales: 4);
             if (v != null && v > 0) c.setParalelo(v);
           },
         ),
@@ -446,7 +443,7 @@ class _FinanzasPageState extends State<FinanzasPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: c,
+      listenable: Listenable.merge([c, ColoresApp.instancia]),
       builder: (context, _) {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
