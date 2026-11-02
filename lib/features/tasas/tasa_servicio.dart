@@ -6,6 +6,7 @@ import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
+import '../../core/errores.dart';
 import 'oficial.dart';
 
 class TasaServicio {
@@ -15,6 +16,16 @@ class TasaServicio {
   static const _apiParalelo = 'https://ve.dolarapi.com/v1/dolares/paralelo';
   static const _ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+
+  /// "2026-10-20T00:00:00-04:00" -> 20/10/2026, tomando solo el día que escribe el BCV.
+  static DateTime? _soloFecha(String? s) {
+    if (s == null || s.length < 10) return null;
+    final p = s.substring(0, 10).split('-');
+    if (p.length != 3) return null;
+    final y = int.tryParse(p[0]), m = int.tryParse(p[1]), d = int.tryParse(p[2]);
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
 
   // "875,65050000" -> 875.6505
   static double _num(String s) =>
@@ -47,7 +58,7 @@ class TasaServicio {
       return Oficial(
         usd: leer('dolar'),
         eur: leer('euro'),
-        fecha: f == null ? null : DateTime.tryParse(f),
+        fecha: _soloFecha(f),
       );
     } finally {
       client.close();
@@ -67,8 +78,30 @@ class TasaServicio {
     return Oficial(
       usd: (datos[0]['promedio'] as num).toDouble(),
       eur: (datos[1]['promedio'] as num).toDouble(),
-      fecha: f == null ? null : DateTime.tryParse(f),
+      fecha: _soloFecha(f),
     );
+  }
+
+  /// Historial completo de un día a día (el último valor de cada día).
+  /// `fuente`: 'oficial' (BCV) o 'paralelo'. Devuelve fecha (aaaa-mm-dd) -> tasa.
+  static Future<Map<String, double>?> historial(String fuente) async {
+    try {
+      final r = await http
+          .get(Uri.parse('https://ve.dolarapi.com/v1/historicos/dolares/$fuente'))
+          .timeout(const Duration(seconds: 25));
+      if (r.statusCode != 200) return null;
+      final m = <String, double>{};
+      for (final e in jsonDecode(r.body) as List<dynamic>) {
+        final j = e as Map<String, dynamic>;
+        final f = (j['fecha'] as String?)?.replaceAll('/', '-');
+        final v = j['promedio'];
+        if (f != null && f.length >= 10 && v is num && v > 0) m[f.substring(0, 10)] = v.toDouble();
+      }
+      return m;
+    } catch (e, st) {
+      RegistroErrores.instancia.registrar('Historial de tasas ($fuente)', e, st);
+      return null;
+    }
   }
 
   /// Tasa paralelo (mejor esfuerzo): devuelve null si no se puede obtener.

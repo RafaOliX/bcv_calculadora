@@ -5,7 +5,11 @@
 double? parsear(String texto) {
   var t = texto.trim().replaceAll(' ', '');
   if (t.isEmpty) return null;
-  if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
+  if (t.contains(',')) {
+    t = t.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'^[1-9]\d{0,2}(\.\d{3})+$').hasMatch(t)) {
+    t = t.replaceAll('.', ''); // 18.500 = dieciocho mil quinientos
+  }
   return double.tryParse(t);
 }
 
@@ -33,3 +37,6 @@ String horaCorta(DateTime d) {
   String dos(int n) => n.toString().padLeft(2, '0');
   return '${dos(d.hour)}:${dos(d.minute)}';
 }
+
+/// Para poner un valor en un campo de texto: con miles y coma decimal (18.500,45).
+String paraCampo(double v, [int dec = 2]) => paraMostrar(v, dec: dec);

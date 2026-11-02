@@ -2,7 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/colores.dart';
 import '../../core/formato.dart';
+import '../../core/hora_venezuela.dart';
+import '../../core/tema.dart';
+import '../../core/widgets/visuales.dart';
 import '../../core/widgets/campo_numerico.dart';
 import '../../core/widgets/tarjeta_error.dart';
 import '../tasas/tasas_repositorio.dart';
@@ -17,6 +21,7 @@ class ConversorPage extends StatefulWidget {
 
 class _ConversorPageState extends State<ConversorPage> {
   late final ConversorController c = ConversorController(TasasRepositorio());
+  int _giros = 0; // para animar el botón de intercambiar
 
   @override
   void dispose() {
@@ -52,6 +57,24 @@ class _ConversorPageState extends State<ConversorPage> {
         ];
 
   // ---- Diferencial --------------------------------------------------------
+  Widget _tasaChip(String nombre, double? valor, Color color, IconData icono) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(children: [
+        Icon(icono, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(nombre, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Text(valor == null ? '—' : paraMostrar(valor, dec: 4),
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+      ]),
+    );
+  }
+
   Widget _fila(String etiqueta, String valor, {Color? color, bool fuerte = false}) {
     final w = fuerte ? FontWeight.bold : FontWeight.normal;
     return Padding(
@@ -73,7 +96,11 @@ class _ConversorPageState extends State<ConversorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Diferencial', style: tt.titleMedium),
+            Row(children: [
+              Icon(Icons.compare_arrows, color: cs.primary),
+              const SizedBox(width: 8),
+              Text('Diferencial', style: tt.titleMedium),
+            ]),
             Text('La misma cantidad a dos tasas distintas', style: suave),
             const SizedBox(height: 12),
             SegmentedButton<Comparar>(
@@ -90,6 +117,7 @@ class _ConversorPageState extends State<ConversorPage> {
                 controller: c.compararCtrl,
                 label: 'Tasa a comparar',
                 sufijo: 'Bs',
+                decimales: 4,
                 estilo: tt.titleMedium,
                 onChanged: c.compararEscrita,
               ),
@@ -123,7 +151,7 @@ class _ConversorPageState extends State<ConversorPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: c,
+      listenable: Listenable.merge([c, ColoresApp.instancia]),
       builder: (context, _) {
         final cs = Theme.of(context).colorScheme;
         final tt = Theme.of(context).textTheme;
@@ -158,12 +186,41 @@ class _ConversorPageState extends State<ConversorPage> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
                     // Tasa oficial (cita sutil)
-                    Text('Tasa oficial', style: sutil),
-                    Text('USD:  ${o == null ? '—' : paraMostrar(o.usd, dec: 4)}', style: sutil),
-                    Text('EUR:  ${o == null ? '—' : paraMostrar(o.eur, dec: 4)}', style: sutil),
-                    if (o?.fecha != null)
-                      Text(fechaCorta(o!.fecha), style: sutil?.copyWith(fontSize: 12)),
+                    Row(children: [
+                      Icon(Icons.verified_outlined, size: 16, color: cs.outline),
+                      const SizedBox(width: 6),
+                      Text('Tasa oficial', style: sutil),
+                      const Spacer(),
+                      if (o?.fecha != null)
+                        Text(
+                          o!.fecha!.isAfter(hoyVzla())
+                              ? 'Tasa del ${fechaCorta(o.fecha)} (aún no hay la de hoy)'
+                              : 'Vigente ${fechaCorta(o.fecha)}',
+                          style: sutil?.copyWith(fontSize: 12),
+                        ),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(child: _tasaChip('USD', o?.usd, Paleta.usd, Icons.attach_money)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _tasaChip('EUR', o?.eur, Paleta.eur, Icons.euro)),
+                    ]),
 
+                    if (c.proxima != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(children: [
+                          Icon(Icons.schedule, size: 14, color: cs.outline),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Desde el ${fechaCorta(c.proxima!.fecha)}: '
+                              'USD ${paraMostrar(c.proxima!.usd, dec: 4)} · EUR ${paraMostrar(c.proxima!.eur, dec: 4)}',
+                              style: sutil?.copyWith(fontSize: 12),
+                            ),
+                          ),
+                        ]),
+                      ),
                     const SizedBox(height: 12),
                     if (c.aviso != null)
                       TarjetaError(
@@ -177,8 +234,10 @@ class _ConversorPageState extends State<ConversorPage> {
                     SegmentedButton<Fuente>(
                       showSelectedIcon: false,
                       segments: const [
-                        ButtonSegment(value: Fuente.usd, label: Text('USD')),
-                        ButtonSegment(value: Fuente.eur, label: Text('EUR')),
+                        ButtonSegment(
+                            value: Fuente.usd, label: Text('USD'), icon: Icon(Icons.attach_money)),
+                        ButtonSegment(
+                            value: Fuente.eur, label: Text('EUR'), icon: Icon(Icons.euro)),
                       ],
                       selected: {c.fuente},
                       onSelectionChanged: (s) {
@@ -198,6 +257,9 @@ class _ConversorPageState extends State<ConversorPage> {
                           ? 'Usando tu tasa. Toca ✕ para volver a la oficial.'
                           : 'Escribe aquí para usar otra tasa.',
                       estilo: tt.titleLarge,
+                      decimales: 4,
+                      icono: Icons.swap_horiz,
+                      color: c.esPersonalizada ? Paleta.paralelo : cs.primary,
                       onChanged: c.tasaEscrita,
                       acciones: c.tasaCtrl.text.isEmpty
                           ? const []
@@ -216,12 +278,25 @@ class _ConversorPageState extends State<ConversorPage> {
                       controller: c.bsCtrl,
                       label: 'Monto en Bs',
                       sufijo: 'Bs',
+                      icono: Icons.payments_outlined,
+                      color: Paleta.bs,
                       onChanged: (_) => c.montoEscrito(esBs: true),
                       acciones: _accionesMonto(c.bsCtrl),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Icon(Icons.swap_vert, color: cs.outline),
+                    Center(
+                      child: IconButton.filledTonal(
+                        tooltip: 'Intercambiar los dos montos',
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _giros++);
+                          c.intercambiarMontos();
+                        },
+                        icon: AnimatedRotation(
+                          turns: _giros / 2,
+                          duration: const Duration(milliseconds: 250),
+                          child: const Icon(Icons.swap_vert),
+                        ),
+                      ),
                     ),
 
                     // Campo 3: USD / EUR
@@ -229,12 +304,14 @@ class _ConversorPageState extends State<ConversorPage> {
                       controller: c.divisaCtrl,
                       label: 'Monto en ${c.simbolo}',
                       sufijo: c.simbolo,
+                      icono: c.fuente == Fuente.usd ? Icons.attach_money : Icons.euro,
+                      color: c.fuente == Fuente.usd ? Paleta.usd : Paleta.eur,
                       onChanged: (_) => c.montoEscrito(esBs: false),
                       acciones: _accionesMonto(c.divisaCtrl),
                     ),
                     const SizedBox(height: 20),
 
-                    _diferencial(cs, tt),
+                    Aparecer(retraso: 150, child: _diferencial(cs, tt)),
                   ],
                 ),
               ),

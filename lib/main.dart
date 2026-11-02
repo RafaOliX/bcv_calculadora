@@ -3,9 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
+import 'core/colores.dart';
 import 'core/errores.dart';
+import 'core/hora_venezuela.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Todo error no capturado queda anotado para poder verlo y copiarlo.
   FlutterError.onError = (d) {
@@ -16,5 +18,7 @@ void main() {
     RegistroErrores.instancia.registrar('Sin capturar', e, st);
     return true;
   };
+  await ColoresApp.instancia.cargar();
+  RelojVzla.instancia.iniciar();
   runApp(const BcvApp());
 }

@@ -1,11 +1,13 @@
 // Lectura de una hoja de Excel pegada como texto y conversión a cierres.
 // Sin dependencias de Flutter: lógica pura.
+import '../../core/csv.dart';
 import '../../core/formato.dart';
 import 'modelos.dart';
 
 enum Rol {
   ignorar('Ignorar'),
   fecha('Fecha'),
+  hora('Hora'),
   bcv('Tasa BCV'),
   paralelo('Tasa paralelo'),
   etiqueta('Etiqueta'),
@@ -39,23 +41,25 @@ class ResultadoImport {
   final int omitidas; // filas sin fecha o sin tasa BCV
 }
 
-/// Texto copiado de Excel (tabulaciones) o CSV (; o ,). La primera línea son los encabezados.
+/// Lee un CSV (separador ; , o tabulación; admite comillas). La primera fila son los encabezados.
 TablaImportada? leerTabla(String texto) {
-  final lineas = texto.split(RegExp(r'\r?\n')).where((l) => l.trim().isNotEmpty).toList();
-  if (lineas.length < 2) return null;
-  final sep = lineas.first.contains('\t') ? '\t' : (lineas.first.contains(';') ? ';' : ',');
-  List<String> celdas(String l) => l.split(sep).map((c) => c.trim().replaceAll('"', '')).toList();
-  return TablaImportada(celdas(lineas.first), lineas.skip(1).map(celdas).toList());
+  final filas = leerCsv(texto);
+  if (filas.length < 2) return null;
+  return TablaImportada(filas.first, filas.skip(1).toList());
 }
+
+/// "Provincial (Bs)" -> "Provincial": quita la moneda del encabezado.
+String nombreCuenta(String h) =>
+    h.replaceFirst(RegExp(r'\s*\((bs|usd|usdt)\)\s*$', caseSensitive: false), '').trim();
 
 Rol _adivinar(String h) {
   final t = h.toLowerCase().trim();
   if (t == 'fecha') return Rol.fecha;
+  if (t == 'hora') return Rol.hora;
   if (t.contains('etiqueta') || t.contains('nota') || t.contains('concepto')) return Rol.etiqueta;
   if (t.isEmpty ||
       t == 'dia' ||
       t == 'día' ||
-      t == 'hora' ||
       t.contains('total') ||
       t.contains('falta') ||
       t.contains('objetivo') ||
@@ -63,6 +67,9 @@ Rol _adivinar(String h) {
       t.contains('p2p')) {
     return Rol.ignorar;
   }
+  if (t.endsWith('(usdt)')) return Rol.usdt;
+  if (t.endsWith('(usd)')) return Rol.usd;
+  if (t.endsWith('(bs)')) return Rol.bs;
   if (t.contains('paralelo')) return Rol.paralelo;
   if (t.contains('bcv')) return Rol.bcv;
   if (t.contains('usdt')) return Rol.usdt;
@@ -98,6 +105,7 @@ ResultadoImport construir(TablaImportada t, List<Rol> roles) {
   final iB = roles.indexOf(Rol.bcv);
   final iP = roles.indexOf(Rol.paralelo);
   final iE = roles.indexOf(Rol.etiqueta);
+  final iH = roles.indexOf(Rol.hora);
   final cols = [for (var i = 0; i < roles.length; i++) if (roles[i].esCuenta) i];
   if (iF < 0 || iB < 0 || cols.isEmpty) {
     return ResultadoImport(const [], const [], t.filas.length);
@@ -116,12 +124,15 @@ ResultadoImport construir(TablaImportada t, List<Rol> roles) {
     }
     final leidaPar = iP >= 0 ? parsear(c(iP)) : null;
     final par = (leidaPar != null && leidaPar > 0) ? leidaPar : bcv;
+    final hm = iH >= 0 ? RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(c(iH)) : null;
+    final momento =
+        hm == null ? f : DateTime(f.year, f.month, f.day, int.parse(hm[1]!), int.parse(hm[2]!));
 
     final saldos = <String, double>{};
     var usd = 0.0, bs = 0.0;
     for (final i in cols) {
       final v = parsear(c(i)) ?? 0;
-      saldos[t.encabezados[i]] = v;
+      saldos[nombreCuenta(t.encabezados[i])] = v;
       if (roles[i] == Rol.bs) {
         bs += v;
       } else {
@@ -130,8 +141,8 @@ ResultadoImport construir(TablaImportada t, List<Rol> roles) {
     }
     final et = iE >= 0 ? c(iE) : '';
     cierres.add(Cierre(
-      id: 'imp_${f.millisecondsSinceEpoch}_${n++}',
-      momento: f,
+      id: 'imp_${momento.millisecondsSinceEpoch}_${n++}',
+      momento: momento,
       bcv: bcv,
       paralelo: par,
       totalBcv: usd + bs / bcv,
@@ -146,7 +157,7 @@ ResultadoImport construir(TablaImportada t, List<Rol> roles) {
   if (cierres.isNotEmpty) {
     final ultimo = cierres.last;
     for (final i in cols) {
-      final nombre = t.encabezados[i];
+      final nombre = nombreCuenta(t.encabezados[i]);
       cuentas.add(Cuenta(
         id: 'imp_c${i}_${n++}',
         nombre: nombre,

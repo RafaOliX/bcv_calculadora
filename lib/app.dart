@@ -1,7 +1,8 @@
-// Configuración global: título y temas. Aquí también irá la navegación
-// cuando existan varias pantallas (conversor, cuentas, metas...).
+// Configuración global: título y temas (que cambian cuando el usuario elige colores).
 import 'package:flutter/material.dart';
 
+import 'core/colores.dart';
+import 'core/tema.dart';
 import 'features/inicio/inicio_page.dart';
 
 class BcvApp extends StatelessWidget {
@@ -9,20 +10,16 @@ class BcvApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Tasa BCV',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
-        brightness: Brightness.light,
+    return ListenableBuilder(
+      listenable: ColoresApp.instancia,
+      builder: (context, _) => MaterialApp(
+        title: 'Tasa BCV',
+        debugShowCheckedModeBanner: false,
+        theme: construirTema(Brightness.light),
+        darkTheme: construirTema(Brightness.dark),
+        themeMode: ColoresApp.instancia.modo,
+        home: const InicioPage(),
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
-        brightness: Brightness.dark,
-      ),
-      home: const InicioPage(),
     );
   }
 }
